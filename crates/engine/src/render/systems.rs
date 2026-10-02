@@ -1,8 +1,8 @@
 use bevy_ecs::prelude::*;
 
-use crate::render::{context::RenderContext, pipeline::PipelineRegistry, mesh::Mesh, material::Material};
+use crate::render::{context::RenderContext, pipeline::PipelineRegistry, mesh::Mesh, material::Material, camera::GpuCamera};
 
-pub fn render_system(mut render_context: ResMut<RenderContext>, pipeline_registry: Res<PipelineRegistry>, query: Query<(&Mesh, &Material)>) {
+pub fn render_system(mut render_context: ResMut<RenderContext>, pipeline_registry: Res<PipelineRegistry>, query: Query<(&Mesh, &Material)>, camera: Res<GpuCamera>) {
     let current_surface_texture = render_context.surface.get_current_texture();
     let drawable = match current_surface_texture {
         wgpu::CurrentSurfaceTexture::Success(frame) | wgpu::CurrentSurfaceTexture::Suboptimal(frame) => frame,
@@ -49,6 +49,8 @@ pub fn render_system(mut render_context: ResMut<RenderContext>, pipeline_registr
 
         for (mesh, material) in query.iter() {
             render_pass.set_bind_group(0, &material.gpu_material.bind_group, &[]);
+            render_pass.set_bind_group(1, &camera.bind_group, &[]);
+                
             render_pass.set_vertex_buffer(0, mesh.gpu_mesh.vertex_buffer.slice(..));
             render_pass.set_index_buffer(mesh.gpu_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
             render_pass.draw_indexed(0..mesh.gpu_mesh.index_count, 0, 0..1);

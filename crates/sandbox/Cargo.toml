@@ -6,3 +6,6 @@ edition = "2024"
 [dependencies]
 engine = { path = "../engine" }
 bevy_ecs = { workspace = true }
+glam = { workspace = true }
+bytemuck = { workspace = true }
+winit = { workspace = true }

@@ -8,6 +8,7 @@ use winit::window::{Window, WindowId};
 
 use crate::app::app::App;
 use crate::input::input::InputState;
+use crate::render::camera::GpuCamera;
 use crate::render::context::RenderContext;
 use crate::render::pipeline::{PipelineBuilder, PipelineRegistry};
 use crate::render::layout::GpuLayout;
@@ -42,9 +43,11 @@ impl ApplicationHandler for AppRunner {
 
         let gpu_layout = GpuLayout::new(&render_context.device);
 
+        let gpu_camera = GpuCamera::new(&render_context.device, &gpu_layout.camera);
+
         let default_pipeline = PipelineBuilder::new(include_str!("../../../../assets/shaders/shader.wgsl"))
             .with_pixel_format(render_context.config.format)
-            .with_layout(&gpu_layout.material)
+            .with_layouts(&[&gpu_layout.material, &gpu_layout.camera])
             .build(&render_context.device);
 
         {
@@ -53,6 +56,7 @@ impl ApplicationHandler for AppRunner {
         }
         
         self.app.world.insert_resource(gpu_layout);
+        self.app.world.insert_resource(gpu_camera);
         self.app.world.insert_resource(render_context);
         self.app.startup_schedule.run(&mut self.app.world);
     }

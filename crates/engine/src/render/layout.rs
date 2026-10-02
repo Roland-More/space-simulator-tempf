@@ -3,6 +3,7 @@ use bevy_ecs::prelude::*;
 #[derive(Resource)]
 pub struct GpuLayout {
     pub material: wgpu::BindGroupLayout,
+    pub camera: wgpu::BindGroupLayout,
 }
 
 impl GpuLayout {
@@ -28,8 +29,26 @@ impl GpuLayout {
             ],
             label: Some("Material Bind Group Layout"),
         });
+
+        let camera_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer { 
+                        ty: wgpu::BufferBindingType::Uniform, 
+                        has_dynamic_offset: false, 
+                        min_binding_size: None 
+                    },
+                    count: None,
+                },
+            ],
+            label: Some("Camera Bind Group Layout"),
+        });
+
         GpuLayout {
             material: material_layout,
+            camera: camera_layout,
         }
     }
 }

@@ -72,7 +72,7 @@ impl<'a> PipelineBuilder<'a> {
         };
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor { 
-            label: Some("Render Pipeline"),
+            label: Some("Render Pipeline"), 
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState { 
                 module: &shader_module, 
