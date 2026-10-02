@@ -10,7 +10,7 @@ pub struct RenderContext {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub config: wgpu::SurfaceConfiguration,
-    size: (u32, u32),
+    pub size: (u32, u32),
     window: Arc<Window>,
 }
 

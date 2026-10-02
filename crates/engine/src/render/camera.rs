@@ -1,26 +1,69 @@
 use bevy_ecs::prelude::*;
+use glam::camera::rh::proj;
 use glam::{Mat4, Vec3, camera}; 
 use glam::camera::rh::{view::look_at_mat4, proj::directx::perspective};
 use wgpu::util::DeviceExt;
+use std::f32::consts::FRAC_PI_2;
 
 use crate::render::layout;
 
+pub const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
+
 #[derive(Component)]
 pub struct Camera {
-    pub eye: Vec3,
-    pub target: Vec3,
-    pub up: Vec3,
-    pub aspect: f32,
-    pub fovy: f32,
-    pub znear: f32,
-    pub zfar: f32,
+    pub position: Vec3,
+    pub yaw: f32,
+    pub pitch: f32,
 }
 
 impl Camera {
-    pub fn build_view_projection_matrix(&self) -> Mat4 {
-        let view = look_at_mat4(self.eye, self.target, self.up);
-        let projection = perspective(self.fovy, self.aspect, self.znear, self.zfar);
-        projection * view
+    pub fn new(position: Vec3, yaw: f32, pitch: f32) -> Self {
+        Self { position, yaw, pitch }
+    }
+
+    pub fn from_direction(position: Vec3, direction: Vec3) -> Self {
+        let dir = direction.normalize();
+
+        let pitch = dir.y.clamp(-1.0, 1.0).asin();
+
+        let yaw = dir.z.atan2(dir.x);
+
+        Self { position, yaw, pitch }
+    }
+
+    pub fn calc_matrix(&self) -> Mat4 {
+        let (yaw_sin, yaw_cos) = self.yaw.sin_cos();
+        let (pitch_sin, pitch_cos) = self.pitch.sin_cos();
+
+        let forward = Vec3::new(
+            pitch_cos * yaw_cos,
+            pitch_sin,
+            pitch_cos * yaw_sin,
+        ).normalize();
+
+        look_at_mat4(self.position, self.position + forward, Vec3::Y)
+    }
+}
+
+#[derive(Resource)]
+pub struct Projection {
+    aspect: f32,
+    fovy: f32,
+    znear: f32,
+    zfar: f32,
+}
+
+impl Projection {
+    pub fn new(aspect: f32, fovy: f32, znear: f32, zfar: f32) -> Self {
+        Self { aspect, fovy, znear, zfar }
+    }
+
+    pub fn resize(&mut self, new_aspect: f32) {
+        self.aspect = new_aspect;
+    }
+
+    pub fn calc_matrix(&self) -> Mat4 {
+        perspective(self.fovy, self.aspect, self.znear, self.zfar)
     }
 }
 
@@ -37,8 +80,8 @@ impl CameraUniform {
         }
     }
 
-    pub fn update_view_proj(&mut self, camera: &Camera) {
-        self.view_proj = camera.build_view_projection_matrix().to_cols_array_2d();
+    pub fn update_view_proj(&mut self, camera: &Camera, projection: &Projection) {
+        self.view_proj = (projection.calc_matrix() * camera.calc_matrix()).to_cols_array_2d();
     }
 }
 

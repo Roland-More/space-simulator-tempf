@@ -5,6 +5,7 @@ use winit::event::{ElementState, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::PhysicalKey;
 use winit::window::{Window, WindowId};
+use winit::event::MouseScrollDelta;
 
 use crate::app::app::App;
 use crate::input::input::InputState;
@@ -12,6 +13,8 @@ use crate::render::camera::GpuCamera;
 use crate::render::context::RenderContext;
 use crate::render::pipeline::{PipelineBuilder, PipelineRegistry};
 use crate::render::layout::GpuLayout;
+use crate::render::camera::Projection;
+use crate::time::time::Time;
 
 pub struct AppRunner {
     app: App,
@@ -45,6 +48,10 @@ impl ApplicationHandler for AppRunner {
 
         let gpu_camera = GpuCamera::new(&render_context.device, &gpu_layout.camera);
 
+        let projection = Projection::new(render_context.size.0 as f32 / render_context.size.1 as f32, 45.0_f32.to_radians(), 0.1, 100.0);
+
+        let time = Time::new();
+
         let default_pipeline = PipelineBuilder::new(include_str!("../../../../assets/shaders/shader.wgsl"))
             .with_pixel_format(render_context.config.format)
             .with_layouts(&[&gpu_layout.material, &gpu_layout.camera])
@@ -55,6 +62,8 @@ impl ApplicationHandler for AppRunner {
             pipeline_registry.pipelines.insert("default".into(), default_pipeline);
         }
         
+        self.app.world.insert_resource(time);
+        self.app.world.insert_resource(projection);
         self.app.world.insert_resource(gpu_layout);
         self.app.world.insert_resource(gpu_camera);
         self.app.world.insert_resource(render_context);
@@ -85,9 +94,46 @@ impl ApplicationHandler for AppRunner {
                     }
                 }
             }
+            WindowEvent::MouseInput { state, button, .. } => {
+                let mut input = self.app.world.resource_mut::<InputState>();
+
+                match state {
+                    ElementState::Pressed => {
+                        input.mouse.pressed_buttons.insert(button);
+                        input.mouse.just_pressed_buttons.insert(button);
+                    }
+                    ElementState::Released => {
+                        input.mouse.pressed_buttons.remove(&button);
+                        input.mouse.just_released_buttons.insert(button);
+                    }
+                }
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                let scroll = match delta {
+                    MouseScrollDelta::LineDelta(x, y) => glam::vec2(x, y),
+                    MouseScrollDelta::PixelDelta(pos) => glam::vec2(pos.x as f32, pos.y as f32),
+                };
+
+                let mut input = self.app.world.resource_mut::<InputState>();
+                
+                input.mouse.scroll_delta += scroll;
+            }
+            WindowEvent::CursorMoved { position, .. } => {
+                let mut input = self.app.world.resource_mut::<InputState>();
+                let new_position = glam::Vec2::new(position.x as f32, position.y as f32);
+
+                let delta = new_position - input.mouse.position;
+
+                input.mouse.delta += delta;
+                input.mouse.position = new_position;
+            }
             WindowEvent::Resized(new_size) => {
                 if let Some(mut render_context) = self.app.world.get_resource_mut::<RenderContext>() {
                     render_context.resize(new_size.width, new_size.height);
+                }
+
+                if let Some(mut projection) = self.app.world.get_resource_mut::<Projection>() {
+                    projection.resize(new_size.width as f32 / new_size.height as f32);
                 }
             }
             _ => (),
@@ -95,6 +141,8 @@ impl ApplicationHandler for AppRunner {
     }
 
     fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+        self.app.world.resource_mut::<Time>().update();
+
         self.app.update_schedule.run(&mut self.app.world);
 
         let mut input = self.app.world.resource_mut::<InputState>();
