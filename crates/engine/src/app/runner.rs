@@ -1,20 +1,16 @@
 use std::sync::Arc;
 
 use winit::application::ApplicationHandler;
-use winit::event::{ElementState, WindowEvent};
+use winit::event::{ElementState, WindowEvent, MouseScrollDelta};
 use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::PhysicalKey;
 use winit::window::{Window, WindowId};
-use winit::event::MouseScrollDelta;
 
 use crate::app::app::App;
 use crate::input::input::InputState;
-use crate::render::camera::GpuCamera;
-use crate::render::context::RenderContext;
-use crate::render::pipeline::{PipelineBuilder, PipelineRegistry};
-use crate::render::layout::GpuLayout;
-use crate::render::camera::Projection;
 use crate::time::time::Time;
+use crate::render::{context::RenderContext,
+                    camera::Projection};
 
 pub struct AppRunner {
     app: App,
@@ -42,31 +38,8 @@ impl ApplicationHandler for AppRunner {
         let window = Arc::new(raw_window);
         self.window = Some(window.clone());
 
-        let render_context = pollster::block_on(RenderContext::new(window.clone()));
+        self.app.init_resources(window);
 
-        let gpu_layout = GpuLayout::new(&render_context.device);
-
-        let gpu_camera = GpuCamera::new(&render_context.device, &gpu_layout.camera);
-
-        let projection = Projection::new(render_context.size.0 as f32 / render_context.size.1 as f32, 45.0_f32.to_radians(), 0.1, 100.0);
-
-        let time = Time::new();
-
-        let default_pipeline = PipelineBuilder::new(include_str!("../../../../assets/shaders/shader.wgsl"))
-            .with_pixel_format(render_context.config.format)
-            .with_layouts(&[&gpu_layout.material, &gpu_layout.camera])
-            .build(&render_context.device);
-
-        {
-            let mut pipeline_registry = self.app.world.resource_mut::<PipelineRegistry>();
-            pipeline_registry.pipelines.insert("default".into(), default_pipeline);
-        }
-        
-        self.app.world.insert_resource(time);
-        self.app.world.insert_resource(projection);
-        self.app.world.insert_resource(gpu_layout);
-        self.app.world.insert_resource(gpu_camera);
-        self.app.world.insert_resource(render_context);
         self.app.startup_schedule.run(&mut self.app.world);
     }
 

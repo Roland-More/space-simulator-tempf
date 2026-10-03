@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use bevy_ecs::prelude::Component;
+
 use wgpu::util::DeviceExt;
 
 #[repr(C)]

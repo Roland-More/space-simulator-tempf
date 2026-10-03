@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use winit::window::Window;
+
 use bevy_ecs::prelude::Resource;
 
 #[derive(Resource)]

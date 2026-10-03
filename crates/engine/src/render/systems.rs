@@ -1,6 +1,10 @@
 use bevy_ecs::prelude::*;
 
-use crate::render::{context::RenderContext, pipeline::PipelineRegistry, mesh::Mesh, material::Material, camera::GpuCamera};
+use crate::render::{context::RenderContext, 
+                    pipeline::PipelineRegistry, 
+                    mesh::Mesh, 
+                    material::Material, 
+                    camera::GpuCamera};
 
 pub fn render_system(mut render_context: ResMut<RenderContext>, pipeline_registry: Res<PipelineRegistry>, query: Query<(&Mesh, &Material)>, camera: Res<GpuCamera>) {
     let current_surface_texture = render_context.surface.get_current_texture();

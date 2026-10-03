@@ -1,13 +1,22 @@
+use std::sync::Arc;
+
 use winit::event_loop::{ControlFlow, EventLoop};
+use winit::window::Window;
+
 use bevy_ecs::prelude::*;
 use bevy_ecs::schedule::ScheduleLabel;
 use bevy_ecs::system::ScheduleSystem;
 
+use crate::time::time::Time;
 use crate::window::window::WindowConfig;
 use crate::app::runner::AppRunner;
 use crate::input::input::InputState;
-use crate::render::systems::render_system;
-use crate::render::pipeline::PipelineRegistry;
+use crate::render::{systems::render_system,
+                    context::RenderContext,
+                    pipeline::{PipelineBuilder, PipelineRegistry},
+                    layout::GpuLayout,
+                    camera::{GpuCamera, Projection}};
+
 
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct StartupSchedule;
@@ -28,18 +37,11 @@ pub struct App {
 
 impl App {
     pub fn new() -> Self {
-        let mut render_schedule = Schedule::new(RenderSchedule);
-        render_schedule.add_systems(render_system);
-
-        let mut world = World::new();
-        world.insert_resource(InputState::default());
-        world.insert_resource(PipelineRegistry::default());
-        
         Self {
-            world,
+            world: World::new(),
             startup_schedule: Schedule::new(StartupSchedule),
             update_schedule: Schedule::new(UpdateSchedule),
-            render_schedule: render_schedule,
+            render_schedule: Schedule::new(RenderSchedule),
             window_config: WindowConfig::default(),
         }
     }
@@ -66,5 +68,35 @@ impl App {
 
         let mut runner = AppRunner::new(self);
         event_loop.run_app(&mut runner).expect("Error running event loop");
+    }
+
+    pub fn init_resources(&mut self, window: Arc<Window>) {
+        self.world.insert_resource(InputState::default());
+        self.world.insert_resource(PipelineRegistry::default());
+        self.world.insert_resource(Time::new());
+        self.render_schedule.add_systems(render_system);
+
+        let render_context = pollster::block_on(RenderContext::new(window.clone()));
+
+        let gpu_layout = GpuLayout::new(&render_context.device);
+
+        let gpu_camera = GpuCamera::new(&render_context.device, &gpu_layout.camera);
+
+        let projection = Projection::new(render_context.size.0 as f32 / render_context.size.1 as f32, 45.0_f32.to_radians(), 0.1, 100.0);
+
+        let default_pipeline = PipelineBuilder::new(include_str!("../../../../assets/shaders/shader.wgsl"))
+            .with_pixel_format(render_context.config.format)
+            .with_layouts(&[&gpu_layout.material, &gpu_layout.camera])
+            .build(&render_context.device);
+
+        {
+            let mut pipeline_registry = self.world.resource_mut::<PipelineRegistry>();
+            pipeline_registry.pipelines.insert("default".into(), default_pipeline);
+        }
+
+        self.world.insert_resource(projection);
+        self.world.insert_resource(gpu_layout);
+        self.world.insert_resource(gpu_camera);
+        self.world.insert_resource(render_context);
     }
 }

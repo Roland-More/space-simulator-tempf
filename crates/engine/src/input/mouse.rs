@@ -1,5 +1,7 @@
 use std::collections::HashSet;
+
 use glam::Vec2;
+
 use winit::event::MouseButton;
 
 #[derive(Debug, Default)]
